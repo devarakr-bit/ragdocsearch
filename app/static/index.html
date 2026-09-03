@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>RAG Document Search</title>
+  <style>
+    body{font-family:system-ui,sans-serif;max-width:900px;margin:40px auto;padding:0 20px;background:#f7f7f8;color:#222} .card{background:white;border:1px solid #ddd;border-radius:12px;padding:20px;margin:16px 0} input,button{padding:10px;border-radius:8px;border:1px solid #ccc} input{width:70%} button{cursor:pointer} .source{font-size:.9em;color:#555;margin-top:6px}
+  </style>
+</head>
+<body>
+  <h1>RAG Document Search</h1>
+  <div class="card">
+    <h2>Upload document</h2>
+    <form id="upload">
+      <input id="file" type="file" accept=".pdf,.docx,.txt,.md" required />
+      <input id="tags" placeholder="tags, comma-separated" />
+      <button>Upload & index</button>
+    </form>
+    <p id="uploadStatus"></p>
+  </div>
+  <div class="card">
+    <h2>Ask a question</h2>
+    <form id="query">
+      <input id="question" placeholder="Ask something about your documents..." required />
+      <input id="filterTags" placeholder="optional tags: finance, policy" />
+      <button>Ask</button>
+    </form>
+    <div id="answer"></div>
+  </div>
+  <div class="card"><h2>Indexed documents</h2><div id="docs">Loading...</div></div>
+<script>
+async function loadDocs(){const r=await fetch('/api/documents');const d=await r.json();document.querySelector('#docs').innerHTML=d.length?d.map(x=>`<div><b>${x.filename}</b> — ${x.chunk_count} chunks — ${x.tags.join(', ')||'no tags'}</div>`).join(''):'No documents yet.'}
+document.querySelector('#upload').onsubmit=async e=>{e.preventDefault();const fd=new FormData();fd.append('file',document.querySelector('#file').files[0]);fd.append('tags',document.querySelector('#tags').value);const r=await fetch('/api/documents',{method:'POST',body:fd});const d=await r.json();document.querySelector('#uploadStatus').textContent=r.ok?`Indexed ${d.filename} (${d.chunk_count} chunks)`:(d.detail||'Upload failed');loadDocs()};
+document.querySelector('#query').onsubmit=async e=>{e.preventDefault();document.querySelector('#answer').textContent='Searching...';const tags=document.querySelector('#filterTags').value.split(',').map(x=>x.trim()).filter(Boolean);const r=await fetch('/api/query',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:document.querySelector('#question').value,tags})});const d=await r.json();document.querySelector('#answer').innerHTML=`<p>${(d.answer||d.detail||'').replace(/</g,'&lt;')}</p><h3>Sources</h3>${(d.sources||[]).map(s=>`<div class="source">${s.filename} · chunk ${s.chunk_index} · score ${s.score}</div>`).join('')}`};
+loadDocs();
+</script>
+</body>
+</html>
